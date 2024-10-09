@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Buku;
 use App\Http\Requests\StoreBukuRequest;
 use App\Http\Requests\UpdateBukuRequest;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class BukuController extends Controller
 {
@@ -13,7 +15,10 @@ class BukuController extends Controller
      */
     public function index()
     {
-     return view('buku/index');
+     return view('buku/index', [ 
+    'bukus' => DB::table('bukus')->get()
+    ]);
+     
     }
 
     /**
@@ -43,7 +48,7 @@ class BukuController extends Controller
         
         Buku::create($validatedData);
         
-        return redirect('/buku');
+        return redirect()->route('buku.index')->with('success', 'Buku berhasil ditambahkan');
     }
 
     /**
@@ -57,9 +62,16 @@ class BukuController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Buku $buku)
+    public function edit(Buku $id)
     {
-        //
+        $buku = Buku::find($id);
+
+        if ($buku === null) {
+            return redirect()->route('bukus.index')->withErrors(['message' => 'Buku tidak ditemukan.']);
+        }
+    
+        return view('buku/update', compact('buku'));
+            
     }
 
     /**
@@ -67,7 +79,22 @@ class BukuController extends Controller
      */
     public function update(UpdateBukuRequest $request, Buku $buku)
     {
-        //
+        $ValidatedData = $request->validated([
+
+            'judul' => 'required',
+            'penulis' => 'required',
+            'kategori' => 'required',
+            'sampul' => 'image|file|max:2048',
+        ]);
+
+        if ($request->files('sampul')) {
+            if ($request->sampulLama) {
+                Storage::delete($request->sampulLama);
+            }
+            $ValidatedData['sampul'] = $request->file('sampul')->store('/sampul-buku');
+        }
+        Buku::where('id', $buku)->update($ValidatedData);
+        return redirect('/buku');
     }
 
     /**
@@ -75,7 +102,14 @@ class BukuController extends Controller
      */
     public function destroy(Buku $buku)
     {
-        //
+        $test = DB::table('bukus')->select('sampul')
+        ->where('id', $buku)
+        ->get();
+    if ($test[0]->sampul) {
+        Storage::delete($test[0]->sampul);
+    }
+    Buku::destroy($buku);
+    return redirect('/buku');
     }
 }
 
